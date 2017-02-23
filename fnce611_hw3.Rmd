@@ -230,7 +230,7 @@ q4 %>% pander()
 
 If you are willing to tolerate a standard deviation of 25% you would borrow `r 100 * (1 - q4$w[1])`% of your investment at the 12% interest rate and invest `r 100 * q4$w[1]`% of your investment in portfolio B.
 
-# CAPM, Security Market Line (1)
+# CAPM, Security Market Line
 
 + By definition we know that the Beta of the market portfolio M must be 1. 
 + We find the $sd(X) = \sqrt{\frac{\rho}{\beta}} = \sqrt{\frac{.4}{1.2}}$
@@ -246,7 +246,18 @@ data_frame(
   pander(missing = "")
 ```
 
+# CAPM, Security Market Line
+
+\begin{align}
+\ d & = E[r_i] = r_f \beta[E[r_m] - r_f] = 0.07 + 1.5[0.15 - 0.07] \\
+ & = `r 0.07+1.5*(.15-.07)`
+\end{align}
+
+\begin{align}
+\ NPV & = E[r_i] = \frac{P_1 - P_0 + Div}{P_0} \\
+ `r 0.07+1.5*(.15-.07)` & = \frac{100 - P_0 + 0}{P_0}
+\end{align}
+
+Thus, the price of a share in ABC today is **`r 100/(1 + 0.07+1.5*(.15-.07))`**.
 
 
-
-# CAPM, Security Market Line (2)
