@@ -23,7 +23,7 @@ pacman::p_load(tidyverse, googlesheets, pander, ggrepel)
 suppressMessages(gs_auth(token = "/home/rstudio/Dropbox/googlesheets_token.rds", verbose = FALSE))
 ```
 
-# Divisification
+# Diversification
 
 ```{r results = 'hide'}
 wfm_tsla <- gs_title("FNCE611") %>%  gs_read(ws = "3.1")
@@ -87,7 +87,7 @@ So the standard deviation of the portfolio is **$\sqrt{Var[r_p]} = `r sqrt(var_p
 w_wfm_opt <- uniroot(function(w) w*e_wfm + (1-w)*e_tsla -.2, interval=c(0,1), tol=0.0001)$root
 ```
 
-The weights of a portfolion showing an expected return of 20% would be **$\omega_{w} = `r w_wfm_opt`$** and  **$\omega_{t} = `r (1-w_wfm_opt)`$**.
+The weights of a portfolio showing an expected return of 20% would be **$\omega_{w} = `r w_wfm_opt`$** and  **$\omega_{t} = `r (1-w_wfm_opt)`$**.
 
 ## e
 
