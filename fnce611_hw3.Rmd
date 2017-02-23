@@ -1,0 +1,252 @@
+---
+title: "FNCE611 Problem Set 3"
+author: "Jessica Blum, Jordan Farrer, Marc Lanthemann"
+date: '2017-02-24'
+output: function(...) {
+
+          fmt <- rmarkdown::pdf_document(toc = TRUE, toc_depth = 1, number_section = TRUE, df_print = 'kable',...)
+        
+          fmt$knitr$knit_hooks$size = function(before, options, envir) {
+            if (before) return(paste0("\n \\", options$size, "\n\n"))
+            else return("\n\n \\normalsize \n")
+          }
+        
+          return(fmt)
+        }
+
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', size = 'small')
+options(digits = 4)
+pacman::p_load(tidyverse, googlesheets, pander, ggrepel)
+suppressMessages(gs_auth(token = "/home/rstudio/Dropbox/googlesheets_token.rds", verbose = FALSE))
+```
+
+# Divisification
+
+```{r results = 'hide'}
+wfm_tsla <- gs_title("FNCE611") %>%  gs_read(ws = "3.1")
+```
+
+## a
+
+```{r}
+e_wfm <- mean(wfm_tsla$wfm) * 12
+e_tsla <- mean(wfm_tsla$tsla) * 12
+
+sd_wfm <- sd(wfm_tsla$wfm) * sqrt(12)
+sd_tsla <- sd(wfm_tsla$tsla) * sqrt(12)
+
+cc <- cor(wfm_tsla$wfm, wfm_tsla$tsla)
+```
+
+|Estimate (annualized)|Value|
+|:---|:----|
+|Expected Return (Whole Foods)|`r e_wfm`|
+|Expected Return (Tesla)|`r e_tsla`|
+|Standard Deviation (Whole Foods)|`r sd_wfm`|
+|Standard Deviation (Tesla)|`r sd_tsla`|
+|Correlation Coefficient|`r cc`|
+
+## b
+
+```{r}
+w_wfm = 0.2
+e_p <- w_wfm*e_wfm + (1-w_wfm)*e_tsla
+```
+
+
+If $w_{wfm} = 0.2$, then the expected return for the portfolio is 
+
+\begin{align}
+\ E[r_p] & = \omega_{w}E[r_{w}] + (1-\omega_{w})E[r_{t}] \\
+ & = `r w_wfm`(`r e_wfm`) + (1 - `r w_wfm`)(`r e_tsla`) \\
+ & = `r e_p`
+\end {align}
+
+## c
+
+```{r echo = FALSE}
+var_p <- w_wfm^2 * sd_wfm^2 + (1-w_wfm)^2 * sd_tsla^2 + 2*w_wfm*(1 - w_wfm)*cc*sd_wfm*sd_tsla
+```
+
+
+\begin{align}
+\ Var[r_p] & = \omega_{w}^2\sigma_{w}^2 + \omega_{t}^2\sigma_{t}^2 + 2\omega_{w}\omega_{t}\rho_{w,t}\sigma_{w}\sigma_{t} \\
+ & = `r w_wfm`^2\cdot `r sd_wfm`^2 + (1-`r w_wfm`)^2\cdot `r sd_tsla`^2 + 2\cdot`r w_wfm`\cdot(1 - `r w_wfm`)\cdot `r cc` \cdot `r sd_wfm` \cdot `r sd_tsla` \\
+ & = `r var_p`
+\end {align}
+
+So the standard deviation of the portfolio is **$\sqrt{Var[r_p]} = `r sqrt(var_p)`$**.
+
+## d
+
+
+```{r}
+w_wfm_opt <- uniroot(function(w) w*e_wfm + (1-w)*e_tsla -.2, interval=c(0,1), tol=0.0001)$root
+```
+
+The weights of a portfolion showing an expected return of 20% would be **$\omega_{w} = `r w_wfm_opt`$** and  **$\omega_{t} = `r (1-w_wfm_opt)`$**.
+
+## e
+
+```{r}
+fn_mvp <- function(par) {
+  w <- par[1]
+  w^2 * sd_wfm^2 + (1-w)^2 * sd_tsla^2 + 2*w*(1 - w)*cc*sd_wfm*sd_tsla
+}
+
+w_wfm_mvp <- nlminb(.5, fn_mvp, lower = 0, upper = 1)$par[1]
+```
+
+The minimum variance portfolio (MVP) would have weights **$\omega_w = `r w_wfm_mvp`$** and **$\omega_t = `r (1- w_wfm_mvp)`$**.
+
+```{r}
+data_frame(w_wfm = seq(0, 1, by = 0.01)) %>%
+  mutate(
+    expected_std = sqrt(w_wfm^2 * sd_wfm^2 + (1-w_wfm)^2 * 
+                          sd_tsla^2 + 2*w_wfm*(1 - w_wfm)*cc*sd_wfm*sd_tsla)
+    , expected_return = w_wfm*e_wfm + (1-w_wfm)*e_tsla
+  ) %>%
+  ggplot(aes(x = expected_std, y = expected_return, colour = w_wfm)) +
+  geom_path() +
+  labs(x = expression(sigma[p]), y = expression(E~group("[",X[p], "]")), 
+       colour = expression(omega[w])) +
+  geom_point(data = . %>% top_n(-1, expected_std),  
+             aes(x = expected_std, y = expected_return), colour = 'red') +
+  scale_x_continuous(limits = c(0, NA))
+```
+
+## f
+
+```{r}
+fn_rfr <- function(par) {
+  w <- par[1]
+  sharpe <- ((w*e_wfm + (1-w)*e_tsla) - 0.02) / sqrt(w^2 * sd_wfm^2 + (1-w)^2 * sd_tsla^2 + 
+                                                       2*w*(1 - w)*cc*sd_wfm*sd_tsla)
+  return(-sharpe)
+}
+max_w <- nlminb(.5, fn_rfr, lower = 0, upper = 1)$par[1]
+max_sharpe_ratio <- ((max_w*e_wfm + (1-max_w)*e_tsla) - 0.02) / sqrt(max_w^2 * sd_wfm^2 +
+                      (1-max_w)^2 * sd_tsla^2 + 2*max_w*(1 - max_w)*cc*sd_wfm*sd_tsla)
+```
+
+A portfolio with the highest Sharpe ratio would have weights **$\omega_w = `r max_w`$** and **$\omega_t = `r (1- max_w)`$**.
+
+```{r}
+efficient_mix <- 
+  data_frame(expected_std = 
+         sqrt(max_w^2 * sd_wfm^2 + (1-max_w)^2 * sd_tsla^2 + 
+                2*max_w*(1 - max_w)*cc*sd_wfm*sd_tsla)
+       , expected_return = max_w*e_wfm + (1-max_w)*e_tsla
+  )
+
+data_frame(w_wfm = seq(0, 1, by = 0.01)) %>%
+  mutate(
+    expected_std = sqrt(w_wfm^2 * sd_wfm^2 + (1-w_wfm)^2 * sd_tsla^2 + 
+                          2*w_wfm*(1 - w_wfm)*cc*sd_wfm*sd_tsla)
+    , expected_return = w_wfm*e_wfm + (1-w_wfm)*e_tsla
+  ) %>%
+  ggplot(aes(x = expected_std, y = expected_return, colour = w_wfm)) +
+  geom_path() +
+  labs(x = expression(sigma[p]), y = expression(E~group("[",X[p], "]")),
+       colour = expression(omega[w])) +
+  geom_point(data = . %>% top_n(-1, expected_std),  
+             aes(x = expected_std, y = expected_return), colour = 'red') +
+  scale_x_continuous(limits = c(0, NA), expand = c(0,0)) +
+  scale_y_continuous(limits = c(0, NA)) +
+  geom_abline(aes(slope = max_sharpe_ratio, intercept = 0.02), size = .2) +
+  geom_point(data = efficient_mix, aes(x = expected_std, y = expected_return),
+             colour = 'dark green')
+```
+
+## g
+
+\begin{align}
+\ E[r_p] & = \omega_{riskless\;asset}E[r_{riskless\,asset}] + (1- \omega_{riskless\;asset})E[r_{mix}] \\
+  0.25 & = \omega_{riskless\;asset}0.02 + (1- \omega_{riskless\;asset})`r efficient_mix$expected_return[1]`
+\end{align}
+
+```{r}
+w_investor_rf <- uniroot(function(w) 0.02*w + (1-w)*efficient_mix$expected_return[1] - 0.25, 
+                         interval=c(0,1), tol=0.0001)$root
+```
+
+For a portfolio with an expected return of 25%, **$\omega_{riskless\;asset} = `r w_investor_rf`$** and **$\omega_{mix} = `r 1 - w_investor_rf`$**. Thus, **$\omega_w = `r max_w * (1 - w_investor_rf)`$** and **$\omega_t = `r (1- max_w) * (1 - w_investor_rf)`$**.
+
+# Efficient Portfolios, Capital Market Line
+
+## a
+
+```{r}
+question2 <- 
+  data_frame(
+    label = LETTERS[1:8]
+    , e_r = c(.1, .125, .15, .16, .17, .18, .18, .2)
+    , sd_r = c(.23, .21, .25, .29, .29, .32, .35, .45)
+  )
+  
+question2 %>%  
+  ggplot(aes(x = sd_r, y = e_r)) + 
+  geom_point() +
+  labs(x = expression(sigma[r]), y = expression(E~group("[",r, "]")), 
+       colour = expression(omega[w])) +
+  ggrepel::geom_text_repel(aes(x = sd_r, y = e_r, label = label)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(labels = scales::percent)
+```
+
+## b
+
+Portfolios A and D are inefficient. A is inefficient because for less risk you can get more return with portfolio B. D is inefficient because for the same risk you can get a greater return with E.
+
+## c 
+
+We see from the table below, that if you can borrow and lend at an interest rate of 12%, **portfolio F** has the highest Sharpe Ratio.
+
+```{r}
+question2 %>%
+  mutate(
+    sharpe_ratio = (e_r - 0.12) / sd_r
+  ) %>%
+  arrange(desc(sharpe_ratio)) %>%
+  pander()
+```
+
+## d
+
+```{r}
+q4 <- 
+  question2 %>%
+    mutate(
+      w = .25 / sd_r
+      , r_p = w*e_r +(1-e_r)*0.12
+      ) %>%
+    arrange(desc(r_p))
+
+q4 %>% pander()
+```
+
+If you are willing to tolerate a standard deviation of 25% you would borrow `r 100 * (1 - q4$w[1])`% of your investment at the 12% interest rate and invest `r 100 * q4$w[1]`% of your investment in portfolio B.
+
+# CAPM, Security Market Line (1)
+
++ By definition we know that the Beta of the market portfolio M must be 1. 
++ We find the $sd(X) = \sqrt{\frac{\rho}{\beta}} = \sqrt{\frac{.4}{1.2}}$
++ We use the fact that $r - r_f = \beta(r_m - r_f)$ to find $r_x = 9$ and $r_Q = 13$
+
+```{r}
+data_frame(
+  `Title` = c("Stock X", "Efficient Portfolio Q","Market Portfolio M","Riskless Asset")
+  , `Expected Return` = c("9%", "13%", "8%", "3%")
+  , Beta = c(1.2, 2.0, 1, 0.0)
+  , `Standard Deviation` = c("57.74%", NA, "20%", "0%")
+) %>%
+  pander(missing = "")
+```
+
+
+
+
+# CAPM, Security Market Line (2)
